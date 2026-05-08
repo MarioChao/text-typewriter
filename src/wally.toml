@@ -1,0 +1,12 @@
+[package]
+name = "mariochao/text-typewriter"
+description = "Facile module for rendering texts character by character."
+
+version = "0.0.0"
+license = "MIT"
+authors = ["Mario Chao"]
+realm = "shared"
+registry = "https://github.com/UpliftGames/wally-index"
+repository = "https://github.com/MarioChao/text-typewriter"
+
+[dependencies]

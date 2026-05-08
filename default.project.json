@@ -1,0 +1,17 @@
+{
+  "name": "text-typewriter",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Modules": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+
+        "TextTypewriter": {
+          "$path": "src/TextTypewriter"
+        }
+      }
+    }
+  }
+}
