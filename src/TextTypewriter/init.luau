@@ -11,9 +11,6 @@ Constants.random = Random.new()
 
 Constants.defaultCharSpeed = 48
 Constants.defaultRegex_pauseDelay = {
-    ["[%w]%s"] = 0.02,
-    ["[%w]$"] = 0.02,
-
     ["[,]%s"] = 0.1,
     ["[,]$"] = 0.1,
 
@@ -26,7 +23,7 @@ Constants.defaultRegex_pauseDelay = {
 do
     local defaultCharSounds = script:WaitForChild("TypingSounds"):GetChildren() :: {Sound}
     Constants.defaultSoundPerCharCallback = function(char: string)
-        if string.find(char, "%w") then
+        if string.find(char, "[^%s]") then
             local randomIndex = Constants.random:NextInteger(1, #defaultCharSounds)
             local chosenTemplate = defaultCharSounds[randomIndex]
             local soundClone = chosenTemplate:Clone()
@@ -128,16 +125,18 @@ end
 function Module.writeText(self: MObjectType, textInstance: Instance, text: string, skippable: boolean)
     if textInstance:IsA("TextBox") or textInstance:IsA("TextButton") or textInstance:IsA("TextLabel") then
         local tempInstance = textInstance :: TextLabel
-        tempInstance.Text = ""
+        tempInstance.MaxVisibleGraphemes = 0
+        tempInstance.Text = text
 
         -- Initialize states
         local typedMessage = ""
-        local typedCharCount = 0
+        local typedUnitCount = 0
+        local typedGraphemeCount = 0
         local summedPauseDelay = 0
-        local messageLength = string.len(text)
+        local stringLength = string.len(text)
 
         -- Process pauses
-        local index_pause = table.create(messageLength, 0)
+        local index_pause = table.create(stringLength, 0)
         for regex, delay in self.config.regex_pauseDelay do
             -- Validate delay
             if not delay or delay == 0 then
@@ -159,30 +158,41 @@ function Module.writeText(self: MObjectType, textInstance: Instance, text: strin
 
         -- Type text
         local startTime = time()
-        while typedCharCount < messageLength do
+        for graphemeStart, graphemeEnd in utf8.graphemes(text) do
             -- Check skipped
             if skippable and self.isSkipping then
                 break
             end
 
-            -- Type character
-            typedCharCount += 1
-            local char = string.sub(text, typedCharCount, typedCharCount)
-            typedMessage ..= char
-            tempInstance.Text = typedMessage
-            summedPauseDelay += index_pause[typedCharCount]
-            task.defer(self.config.soundPerCharCallback, char)
+            -- Type grapheme
+            local graphemeLength = graphemeEnd - graphemeStart + 1
+            local grapheme = string.sub(text, graphemeStart, graphemeEnd)
+            typedMessage ..= grapheme
+            typedGraphemeCount += 1
+            tempInstance.MaxVisibleGraphemes = typedGraphemeCount
+
+            -- Pauses
+            local pauseDelay = 0
+            for i = 1, graphemeLength do
+                local charIndex = typedUnitCount + i
+                pauseDelay = math.max(pauseDelay, index_pause[charIndex])
+            end
+            summedPauseDelay += pauseDelay
+            typedUnitCount += graphemeLength
+
+            -- Callbacks
+            task.defer(self.config.soundPerCharCallback, grapheme)
             task.defer(self.config.customPerCharCallback)
 
             -- Handle delay
-            while typedCharCount / self.config.charSpeed + summedPauseDelay >= (time() - startTime) do
+            while typedGraphemeCount / self.config.charSpeed + summedPauseDelay >= (time() - startTime) do
                 if skippable and self.isSkipping then
                     break
                 end
                 task.wait()
             end
         end
-        tempInstance.Text = text
+        tempInstance.MaxVisibleGraphemes = -1
     end
 end
 
